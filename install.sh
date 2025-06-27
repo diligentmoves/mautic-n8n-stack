@@ -118,7 +118,6 @@ mkdir -p mautic-n8n-stack && cd mautic-n8n-stack
 mkdir -p letsencrypt
 
 cat > docker-compose.yml <<EOF
-
 services:
   traefik:
     image: traefik:v2.10
@@ -128,7 +127,7 @@ services:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=$EMAIL"
+      - "--certificatesresolvers.myresolver.acme.email=${EMAIL}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
@@ -142,7 +141,7 @@ services:
     image: mautic/mautic:5-apache
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mautic.rule=Host(\`$MAUTIC_HOST\`)"
+      - "traefik.http.routers.mautic.rule=Host(`${MAUTIC_HOST}`)"
       - "traefik.http.routers.mautic.entrypoints=websecure"
       - "traefik.http.routers.mautic.tls.certresolver=myresolver"
     environment:
@@ -153,9 +152,9 @@ services:
     depends_on:
       - db
     ports:
-      - "8080:80"           # Expose Apache inside container on localhost:8080
+      - "8080:80"
     volumes:
-      - ./mautic_data:/var/www/html  # Persist uploads/configs/logs etc.
+      - mautic_data:/var/www/html
     restart: unless-stopped
 
   db:
@@ -173,7 +172,7 @@ services:
     image: n8nio/n8n
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=Host(\`$N8N_HOST\`)"
+      - "traefik.http.routers.n8n.rule=Host(`${N8N_HOST}`)"
       - "traefik.http.routers.n8n.entrypoints=websecure"
       - "traefik.http.routers.n8n.tls.certresolver=myresolver"
     environment:
@@ -202,6 +201,7 @@ services:
 
 volumes:
   db_data:
+  mautic_data:
   n8n_data:
 EOF
 
