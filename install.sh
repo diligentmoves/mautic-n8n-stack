@@ -158,10 +158,10 @@ services:
   db:
     image: mysql:5.7
     environment:
-      MYSQL_ROOT_PASSWORD=rootpass
-      MYSQL_DATABASE=mautic
-      MYSQL_USER=mautic
-      MYSQL_PASSWORD=mauticpass
+      - MYSQL_ROOT_PASSWORD=rootpass
+      - MYSQL_DATABASE=mautic
+      - MYSQL_USER=mautic
+      - MYSQL_PASSWORD=mauticpass
     volumes:
       - db_data:/var/lib/mysql
     restart: unless-stopped
