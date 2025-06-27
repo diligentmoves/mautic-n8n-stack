@@ -29,6 +29,12 @@ if ! command -v docker &> /dev/null; then
     install_docker
 fi
 
+# Ensure docker-compose is accessible for legacy scripts
+if ! command -v docker-compose &> /dev/null; then
+    echo "🔁 Linking docker-compose plugin for compatibility..."
+    ln -s /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose 2>/dev/null || true
+fi
+
 set -e
 
 # Default values
