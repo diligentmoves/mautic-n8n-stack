@@ -140,7 +140,7 @@ services:
     restart: unless-stopped
 
   mautic:
-    image: mautic/mautic:5.2.0-fpm
+    image: mautic/mautic:5-apache
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.mautic.rule=Host(\`$MAUTIC_HOST\`)"
