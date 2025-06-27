@@ -207,6 +207,19 @@ EOF
 echo -e "\n🚀 Launching your stack..."
 docker compose up -d
 
+# Wait for DB to be ready
+echo "⏳ Waiting for database to be ready..."
+
+# Get the container name for the 'db' service dynamically
+DB_CONTAINER=$(docker compose ps -q db)
+
+until docker exec "$DB_CONTAINER" mysqladmin ping -h "localhost" --silent; do
+  echo "Waiting for database connection..."
+  sleep 5
+done
+
+echo "✅ Database is ready!"
+
 echo -e "\n✅ Installation Complete!"
 cat <<EOT
 
