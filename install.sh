@@ -205,10 +205,30 @@ volumes:
   n8n_data:
 EOF
 
+# ------------------ Generate .env File ------------------
+
+cat > .env <<EOF
+EMAIL=${EMAIL}
+MAUTIC_HOST=${MAUTIC_HOST}
+N8N_HOST=${N8N_HOST}
+
+MAUTIC_DB_HOST=db
+MAUTIC_DB_NAME=mautic
+MAUTIC_DB_USER=mautic
+MAUTIC_DB_PASSWORD=mauticpass
+
+N8N_BASIC_AUTH_ACTIVE=true
+N8N_BASIC_AUTH_USER=admin
+N8N_BASIC_AUTH_PASSWORD=test1234#
+EOF
+
+chmod 600 .env
+echo "✅ .env file created."
+
 # ------------------ Launch Stack ------------------
 
 echo -e "\n🚀 Launching your stack..."
-docker compose up -d
+docker compose --env-file .env up -d
 
 # Wait for DB to be ready
 echo "⏳ Waiting for database to be ready..."
