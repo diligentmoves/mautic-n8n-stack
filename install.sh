@@ -153,7 +153,7 @@ services:
     depends_on:
       - db
     ports:
-      - "8080:80"
+      - "8081:80"
     volumes:
       - mautic_data:/var/www/html
     restart: unless-stopped
