@@ -132,6 +132,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./letsencrypt:/letsencrypt"
@@ -141,7 +142,7 @@ services:
     image: mautic/mautic:5-apache
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mautic.rule=Host(`${MAUTIC_HOST}`)"
+      - "traefik.http.routers.mautic.rule=Host(\"${MAUTIC_HOST}\")"
       - "traefik.http.routers.mautic.entrypoints=websecure"
       - "traefik.http.routers.mautic.tls.certresolver=myresolver"
     environment:
@@ -157,22 +158,11 @@ services:
       - mautic_data:/var/www/html
     restart: unless-stopped
 
-  db:
-    image: mysql:5.7
-    environment:
-      - MYSQL_ROOT_PASSWORD=rootpass
-      - MYSQL_DATABASE=mautic
-      - MYSQL_USER=mautic
-      - MYSQL_PASSWORD=mauticpass
-    volumes:
-      - db_data:/var/lib/mysql
-    restart: unless-stopped
-
   n8n:
     image: n8nio/n8n
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=Host(`${N8N_HOST}`)"
+      - "traefik.http.routers.n8n.rule=Host(\"${N8N_HOST}\")"
       - "traefik.http.routers.n8n.entrypoints=websecure"
       - "traefik.http.routers.n8n.tls.certresolver=myresolver"
     environment:
@@ -182,6 +172,17 @@ services:
       - N8N_BASIC_AUTH_PASSWORD=test1234#
     volumes:
       - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+  db:
+    image: mysql:5.7
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpass
+      - MYSQL_DATABASE=mautic
+      - MYSQL_USER=mautic
+      - MYSQL_PASSWORD=mauticpass
+    volumes:
+      - db_data:/var/lib/mysql
     restart: unless-stopped
 
   qdrant:
@@ -204,6 +205,7 @@ volumes:
   mautic_data:
   n8n_data:
 EOF
+
 
 # ------------------ Generate .env File ------------------
 
