@@ -3,10 +3,11 @@ set -e
 
 RESET_DB=false
 
-# Parse optional --reset flag
+# Parse optional --reset flag with unknown argument validation
 while [[ "$#" -gt 0 ]]; do
   case $1 in
     --reset) RESET_DB=true ;;
+    *) echo "❌ Unknown argument: $1" ; exit 1 ;;
   esac
   shift
 done
