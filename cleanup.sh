@@ -15,8 +15,14 @@ done
 if command -v docker &> /dev/null; then
   echo "🧹 Cleaning up Docker stack and related resources..."
 
+if [ -f docker-compose.yml ]; then
   docker compose down -v --remove-orphans || true
-  docker system prune -af --volumes
+else
+  echo "⚠️ No docker-compose.yml found, skipping stack shutdown."
+fi
+
+docker system prune -af --volumes
+
 
   if [ "$RESET_DB" = true ]; then
     read -p "⚠️ Are you sure you want to REMOVE the specific Docker volumes (mautic-n8n-stack_db_data, n8n_data)? [y/N] " confirm
