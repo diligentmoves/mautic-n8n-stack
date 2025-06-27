@@ -1,6 +1,8 @@
 #!/bin/bash
+set -e
 
-# Function to install Docker if not present
+# ------------------ Docker Installation ------------------
+
 install_docker() {
     echo "🔧 Docker not found. Installing Docker & Docker Compose..."
 
@@ -8,7 +10,8 @@ install_docker() {
         ca-certificates \
         curl \
         gnupg \
-        lsb-release
+        lsb-release \
+        dnsutils
 
     mkdir -p /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -35,61 +38,49 @@ if ! command -v docker-compose &> /dev/null; then
     ln -s /usr/libexec/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose 2>/dev/null || true
 fi
 
-set -e
+# ------------------ Argument Parsing ------------------
 
-# Default values
 DOMAIN=""
 EMAIL=""
-MAUTIC_SUB="m"
-N8N_SUB="n8n"
 
-# --- Helpers ---
-print_header() {
-    echo -e "\n\033[1;34m$1\033[0m\n"
-}
-
-fail() {
-    echo -e "\n\033[0;31mERROR:\033[0m $1\n"
-    exit 1
-}
-
-check_command() {
-    command -v "$1" >/dev/null 2>&1 || fail "$1 is required but not installed."
-}
-
-# Helper function to resolve IP using a specific resolver (Google DNS)
-resolve_ip() { 
-    dig +short "$1" @8.8.8.8 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -n1
-}
-
-# --- Argument Parsing ---
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --domain) DOMAIN="$2"; shift ;;
         --email) EMAIL="$2"; shift ;;
-        *) fail "Unknown parameter passed: $1" ;;
+        *) echo "❌ Unknown parameter passed: $1" ; exit 1 ;;
     esac
     shift
 done
 
-[ -z "$DOMAIN" ] && fail "--domain is required"
-[ -z "$EMAIL" ] && fail "--email is required"
+[[ -z "$DOMAIN" ]] && { echo "❌ --domain is required"; exit 1; }
+[[ -z "$EMAIL" ]] && { echo "❌ --email is required"; exit 1; }
 
-# --- Initial Checks ---
-check_command docker
-check_command docker-compose
-check_command dig
+# ------------------ Prompt for Subdomains ------------------
 
-PUBLIC_IP=$(curl -s https://api.ipify.org)
+echo -e "\n📛 Subdomain Configuration"
+read -p "Enter subdomain for Mautic (default: m): " MAUTIC_SUB
+read -p "Enter subdomain for N8N (default: n8n): " N8N_SUB
+
+# Fallback to defaults
+MAUTIC_SUB="${MAUTIC_SUB:-m}"
+N8N_SUB="${N8N_SUB:-n8n}"
+
 MAUTIC_HOST="$MAUTIC_SUB.$DOMAIN"
 N8N_HOST="$N8N_SUB.$DOMAIN"
 
-print_header "🔧 DNS Configuration Required"
-echo "Please create the following DNS A records:"
-echo "  - $MAUTIC_HOST  ➜  $PUBLIC_IP"
-echo "  - $N8N_HOST     ➜  $PUBLIC_IP"
+# ------------------ DNS Propagation Check ------------------
 
-echo -e "\nWaiting for DNS propagation… (CTRL+C to cancel)"
+resolve_ip() {
+    dig +short "$1" @8.8.8.8 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -n1
+}
+
+PUBLIC_IP=$(curl -s https://api.ipify.org)
+
+echo -e "\n🔧 Please create the following DNS A records pointing to your server IP:"
+echo "  - $MAUTIC_HOST ➜ $PUBLIC_IP"
+echo "  - $N8N_HOST    ➜ $PUBLIC_IP"
+
+echo -e "\n⏳ Waiting for DNS propagation (CTRL+C to cancel)..."
 
 MAX_RETRIES=20
 SLEEP_INTERVAL=30
@@ -99,36 +90,32 @@ while (( RETRY < MAX_RETRIES )); do
     MAUTIC_IP=$(resolve_ip "$MAUTIC_HOST")
     N8N_IP=$(resolve_ip "$N8N_HOST")
 
-    echo -e "\nChecking records:"
-    echo -n "  $MAUTIC_HOST ➜ $MAUTIC_IP "
-    [[ "$MAUTIC_IP" == "$PUBLIC_IP" ]] && echo "✅" || echo "❌"
+    echo -e "\nDNS Check:"
+    echo -n "  $MAUTIC_HOST ➜ $MAUTIC_IP "; [[ "$MAUTIC_IP" == "$PUBLIC_IP" ]] && echo "✅" || echo "❌"
+    echo -n "  $N8N_HOST    ➜ $N8N_IP "; [[ "$N8N_IP" == "$PUBLIC_IP" ]] && echo "✅" || echo "❌"
 
-    echo -n "  $N8N_HOST    ➜ $N8N_IP "
-    [[ "$N8N_IP" == "$PUBLIC_IP" ]] && echo "✅" || echo "❌"
-
-    # If both IPs match the expected PUBLIC_IP, break the loop
     if [[ "$MAUTIC_IP" == "$PUBLIC_IP" && "$N8N_IP" == "$PUBLIC_IP" ]]; then
+        echo "✅ DNS records are correctly propagated."
         break
     fi
 
     (( RETRY++ ))
-    echo "Retrying in $SLEEP_INTERVAL seconds… ($RETRY/$MAX_RETRIES)"
+    echo "🔁 Retrying in $SLEEP_INTERVAL seconds… ($RETRY/$MAX_RETRIES)"
     sleep $SLEEP_INTERVAL
 done
 
 if (( RETRY == MAX_RETRIES )); then
-    echo "❌ DNS did not propagate within expected time."
+    echo "❌ DNS did not propagate within expected time. Please check your A records."
     exit 1
 fi
 
-print_header "✅ DNS Propagation Complete"
-echo "Proceeding with stack installation…"
+# ------------------ Docker Compose Stack Setup ------------------
 
-
-# --- Generate Docker Compose File ---
-print_header "⚙️ Creating Docker Compose Stack"
+echo -e "\n⚙️ Setting up Docker Compose Stack..."
 
 mkdir -p mautic-n8n-stack && cd mautic-n8n-stack
+
+mkdir -p letsencrypt
 
 cat > docker-compose.yml <<EOF
 version: "3.8"
@@ -215,22 +202,19 @@ volumes:
   n8n_data:
 EOF
 
-# Create directories
-mkdir -p letsencrypt
+# ------------------ Launch Stack ------------------
 
-print_header "🚀 Launching Docker Stack"
+echo -e "\n🚀 Launching your stack..."
 docker compose up -d
 
-print_header "✅ Installation Complete"
-echo "Your marketing automation stack is ready!"
-
+echo -e "\n✅ Installation Complete!"
 cat <<EOT
 
 🔗 Access your services:
 
   • Mautic:  https://$MAUTIC_HOST
      - Username: admin
-     - Password: auto-generated on first run
+     - Password: (set during initial setup)
 
   • N8N:     https://$N8N_HOST
      - Username: admin
@@ -240,6 +224,5 @@ To update your stack in future:
   docker compose pull
   docker compose up -d
 
-Enjoy your self-hosted open-source stack 🎉
-
+✨ Enjoy your self-hosted automation stack!
 EOT
