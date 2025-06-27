@@ -57,8 +57,9 @@ check_command() {
     command -v "$1" >/dev/null 2>&1 || fail "$1 is required but not installed."
 }
 
-resolve_ip() {
-    dig +short "$1" | tail -n1
+# Helper function to resolve IP using a specific resolver (Google DNS)
+resolve_ip() { 
+    dig +short "$1" @8.8.8.8 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -n1
 }
 
 # --- Argument Parsing ---
@@ -89,7 +90,12 @@ echo "  - $MAUTIC_HOST  ➜  $PUBLIC_IP"
 echo "  - $N8N_HOST     ➜  $PUBLIC_IP"
 
 echo -e "\nWaiting for DNS propagation… (CTRL+C to cancel)"
-while true; do
+
+MAX_RETRIES=20
+SLEEP_INTERVAL=30
+RETRY=0
+
+while (( RETRY < MAX_RETRIES )); do
     MAUTIC_IP=$(resolve_ip "$MAUTIC_HOST")
     N8N_IP=$(resolve_ip "$N8N_HOST")
 
@@ -100,16 +106,24 @@ while true; do
     echo -n "  $N8N_HOST    ➜ $N8N_IP "
     [[ "$N8N_IP" == "$PUBLIC_IP" ]] && echo "✅" || echo "❌"
 
+    # If both IPs match the expected PUBLIC_IP, break the loop
     if [[ "$MAUTIC_IP" == "$PUBLIC_IP" && "$N8N_IP" == "$PUBLIC_IP" ]]; then
         break
     fi
 
-    echo "Retrying in 30 seconds…"
-    sleep 30
+    (( RETRY++ ))
+    echo "Retrying in $SLEEP_INTERVAL seconds… ($RETRY/$MAX_RETRIES)"
+    sleep $SLEEP_INTERVAL
 done
+
+if (( RETRY == MAX_RETRIES )); then
+    echo "❌ DNS did not propagate within expected time."
+    exit 1
+fi
 
 print_header "✅ DNS Propagation Complete"
 echo "Proceeding with stack installation…"
+
 
 # --- Generate Docker Compose File ---
 print_header "⚙️ Creating Docker Compose Stack"
