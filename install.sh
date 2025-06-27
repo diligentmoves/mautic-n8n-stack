@@ -152,7 +152,7 @@ services:
       - MAUTIC_DB_PASSWORD=mauticpass
     depends_on:
       - db
-	ports:# testing tab removal for Yaml Checker
+    ports:
       - "8080:80"           # Expose Apache inside container on localhost:8080
     volumes:
       - ./mautic_data:/var/www/html  # Persist uploads/configs/logs etc.
