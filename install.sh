@@ -118,7 +118,6 @@ mkdir -p mautic-n8n-stack && cd mautic-n8n-stack
 mkdir -p letsencrypt
 
 cat > docker-compose.yml <<EOF
-version: "3.8"
 
 services:
   traefik:
@@ -153,6 +152,10 @@ services:
       - MAUTIC_DB_PASSWORD=mauticpass
     depends_on:
       - db
+	ports:
+      - "8080:80"           # Expose Apache inside container on localhost:8080
+    volumes:
+      - ./mautic_data:/var/www/html  # Persist uploads/configs/logs etc.
     restart: unless-stopped
 
   db:
